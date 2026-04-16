@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kimi API 开发者控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        zinc: { 850: '#1f1f22', 900: '#18181b', 950: '#09090b' },
+                        primary: '#8b5cf6', // 官方紫色主题
+                    }
+                }
+            }
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.13.3/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .toast-enter { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-300 font-sans antialiased h-screen flex overflow-hidden" x-data="dashboardData()">
+
+    <aside class="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col z-20 relative shrink-0">
+        <div class="h-16 flex items-center px-6 border-b border-zinc-800">
+            <i class="ph-fill ph-moon-stars text-primary text-2xl mr-2"></i>
+            <span class="text-white font-bold text-lg tracking-wide">Kimi API Hub</span>
+        </div>
+        
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <template x-for="item in navItems" :key="item.id">
+                <button 
+                    @click="activeTab = item.id"
+                    :class="activeTab === item.id ? 'bg-primary/10 text-primary border border-primary/20' : 'hover:bg-zinc-800/50 hover:text-white border border-transparent'"
+                    class="w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
+                >
+                    <i :class="item.icon" class="text-lg mr-3"></i>
+                    <span x-text="item.label"></span>
+                </button>
+            </template>
+        </nav>
+
+        <div class="p-4 border-t border-zinc-800">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-purple-400 flex items-center justify-center text-white font-bold text-sm">U</div>
+                <div>
+                    <p class="text-sm text-white font-medium">dev@example.com</p>
+                    <p class="text-xs text-primary font-mono mt-0.5" x-text="'余额: ¥' + balance.toFixed(4)"></p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        
+        <header class="h-16 border-b border-zinc-800 flex items-center justify-between px-8 bg-zinc-950/80 backdrop-blur-md z-10 shrink-0">
+            <h1 class="text-xl font-semibold text-white" x-text="navItems.find(i => i.id === activeTab).label"></h1>
+            <div class="flex items-center space-x-4">
+                <span class="text-xs text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span> 系统运行正常
+                </span>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-8 no-scrollbar relative">
+            
+            <div x-show="activeTab === 'models'" x-transition.opacity style="display: none;">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-8 space-y-4 md:space-y-0">
+                    <div class="text-sm text-zinc-400 flex items-center">
+                        <i class="ph-fill ph-info text-primary mr-2 text-lg"></i>
+                        <span>当前仅提供 Moonshot (月之暗面) 官方模型。支持 Context Cache (缓存命中) 极速计费。</span>
+                    </div>
+                    <div class="relative w-full md:w-72">
+                        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-lg"></i>
+                        <input type="text" x-model="searchQuery" placeholder="搜索模型名称..." class="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 pl-10 pr-4 text-sm text-white focus:border-primary outline-none transition-colors">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <template x-for="model in filteredModels()" :key="model.id">
+                        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover:border-zinc-600 transition-all group flex flex-col h-full relative overflow-hidden cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
+                            <div class="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            
+                            <div class="flex justify-between items-start mb-4 relative z-10">
+                                <div>
+                                    <h3 class="text-white font-bold text-lg mb-1" x-text="model.name"></h3>
+                                    <p class="text-xs text-zinc-500 font-mono" x-text="model.id"></p>
+                                </div>
+                                <div class="bg-zinc-800 border border-zinc-700 text-zinc-300 text-[10px] px-2 py-1 rounded font-mono font-medium" x-text="model.context"></div>
+                            </div>
+                            
+                            <p class="text-sm text-zinc-400 mb-6 flex-1" x-text="model.description"></p>
+                            
+                            <div class="flex flex-wrap gap-2 mb-6">
+                                <template x-for="tag in model.tags">
+                                    <span class="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-md font-medium" x-text="tag"></span>
+                                </template>
+                            </div>
+                            
+                            <div class="pt-4 border-t border-zinc-800 flex justify-between items-end mt-auto relative z-10">
+                                <div class="flex-1 mr-4">
+                                    <div class="flex items-center space-x-2 mb-2">
+                                        <span class="bg-green-500/10 text-green-400 border border-green-500/20 text-[9px] px-1.5 py-0.5 rounded font-bold">全网 9 折</span>
+                                        <span class="text-[10px] text-zinc-500">价格 (¥ / 1M Tokens)</span>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div class="flex flex-col">
+                                            <span class="text-zinc-500 text-[9px] mb-0.5">输入(命中)</span>
+                                            <div>
+                                                <span class="text-green-400 font-bold font-mono text-xs">¥<span x-text="model.hitPrice"></span></span>
+                                                <span class="text-zinc-600 text-[9px] line-through font-mono ml-0.5" x-text="'¥' + model.officialHit"></span>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col border-l border-zinc-800 pl-2">
+                                            <span class="text-zinc-500 text-[9px] mb-0.5">输入(未命中)</span>
+                                            <div>
+                                                <span class="text-green-400 font-bold font-mono text-xs">¥<span x-text="model.missPrice"></span></span>
+                                                <span class="text-zinc-600 text-[9px] line-through font-mono ml-0.5" x-text="'¥' + model.officialMiss"></span>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col border-l border-zinc-800 pl-2">
+                                            <span class="text-zinc-500 text-[9px] mb-0.5">模型输出</span>
+                                            <div>
+                                                <span class="text-green-400 font-bold font-mono text-xs">¥<span x-text="model.outputPrice"></span></span>
+                                                <span class="text-zinc-600 text-[9px] line-through font-mono ml-0.5" x-text="'¥' + model.officialOutput"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button @click="copyToClipboard(model.id)" class="text-zinc-500 hover:text-white transition-colors bg-zinc-800 p-2 rounded-lg shrink-0 mb-1" title="复制模型调用 ID">
+                                    <i class="ph ph-copy text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div x-show="activeTab === 'keys'" x-transition.opacity style="display: none;">
+                <div class="flex justify-between items-center mb-6">
+                    <p class="text-zinc-400 text-sm">管理您的 API 密钥。为安全起见，密钥仅在创建时完整显示一次。</p>
+                    <button @click="showKeyModal = true" class="bg-zinc-100 text-zinc-950 px-4 py-2 rounded-lg text-sm font-bold hover:bg-white transition-colors flex items-center">
+                        <i class="ph-bold ph-plus mr-2"></i> 新建密钥
+                    </button>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-zinc-800 bg-zinc-950/50 text-zinc-400 text-xs uppercase tracking-wider">
+                                <th class="py-4 px-6 font-medium">名称</th><th class="py-4 px-6 font-medium">密钥</th><th class="py-4 px-6 font-medium">已用 / 额度</th><th class="py-4 px-6 font-medium">创建时间</th><th class="py-4 px-6 font-medium text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm text-zinc-300">
+                            <template x-for="(key, index) in apiKeys" :key="index">
+                                <tr class="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                                    <td class="py-4 px-6 font-medium text-white flex items-center"><div class="w-2 h-2 rounded-full mr-3" :class="key.status ? 'bg-green-500' : 'bg-zinc-600'"></div><span x-text="key.name"></span></td>
+                                    <td class="py-4 px-6"><div class="flex items-center space-x-2 bg-zinc-950 px-3 py-1.5 rounded-md border border-zinc-800 w-fit"><span class="font-mono text-xs text-zinc-400" x-text="maskKey(key.value)"></span><button @click="copyToClipboard(key.value)" class="text-zinc-500 hover:text-white transition-colors"><i class="ph ph-copy"></i></button></div></td>
+                                    <td class="py-4 px-6"><div class="flex flex-col"><span class="text-xs" x-text="`¥${key.used.toFixed(2)} / ${key.quota === -1 ? '无限制' : '¥'+key.quota}`"></span><div class="w-24 h-1.5 bg-zinc-800 rounded-full mt-1.5 overflow-hidden" x-show="key.quota !== -1"><div class="h-full bg-primary" :style="`width: ${(key.used / key.quota) * 100}%`"></div></div></div></td>
+                                    <td class="py-4 px-6 text-xs text-zinc-500" x-text="key.date"></td>
+                                    <td class="py-4 px-6 text-right space-x-3"><button @click="key.status = !key.status" class="text-zinc-500 hover:text-white"><i class="text-lg" :class="key.status ? 'ph ph-pause-circle' : 'ph ph-play-circle'"></i></button><button @click="apiKeys.splice(index, 1)" class="text-red-500/70 hover:text-red-400"><i class="ph ph-trash text-lg"></i></button></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div x-show="activeTab === 'billing'" x-transition.opacity style="display: none;">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 relative shadow-lg">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-primary rounded-t-xl"></div>
+                        <h3 class="text-zinc-400 text-sm font-medium flex items-center mb-3"><i class="ph-fill ph-wallet text-red-500 mr-2 text-lg"></i> 余额</h3>
+                        <div class="flex items-baseline space-x-3">
+                            <span class="text-3xl font-bold text-primary" x-text="'¥' + balance.toFixed(4)"></span>
+                            <span class="text-xs text-zinc-500">(剩余可透支额度 ¥ 0.0000)</span>
+                        </div>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-lg">
+                        <h3 class="text-zinc-400 text-sm font-medium flex items-center mb-3"><i class="ph-fill ph-ticket text-red-500 mr-2 text-lg"></i> 代金券</h3>
+                        <div class="flex items-baseline space-x-2"><span class="text-3xl font-bold text-primary">1</span><span class="text-sm text-zinc-400">张可用</span></div>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 relative overflow-hidden shadow-lg">
+                        <span class="absolute top-0 right-0 bg-primary/20 text-primary text-[10px] px-3 py-1 rounded-bl-lg font-medium">Coming soon</span>
+                        <h3 class="text-zinc-400 text-sm font-medium flex items-center mb-3"><i class="ph-fill ph-package text-orange-500 mr-2 text-lg"></i> 资源包</h3>
+                        <div class="flex items-baseline space-x-2"><span class="text-3xl font-bold text-white">0</span><span class="text-sm text-zinc-400">个生效中</span></div>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-base font-bold text-white">在线充值</h2>
+                        <span class="bg-green-500/10 text-green-400 text-xs px-3 py-1.5 rounded border border-green-500/20 flex items-center cursor-pointer hover:bg-green-500/20 transition-colors"><i class="ph-bold ph-check-circle mr-1"></i> 余额预警已开启 (去设置)</span>
+                    </div>
+
+                    <div class="bg-zinc-900 border border-zinc-800 border-dashed rounded-xl p-8">
+                        <div class="flex flex-col md:flex-row md:items-start mb-8">
+                            <span class="text-sm text-zinc-400 w-24 pt-2.5 mb-2 md:mb-0">支付金额：</span>
+                            <div class="flex-1">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <template x-for="amount in [10, 50, 100, 1000, 2000, 5000, 10000]" :key="amount">
+                                        <button @click="topupAmount = amount; isCustomAmount = false"
+                                                :class="(topupAmount === amount && !isCustomAmount) ? 'border-primary text-primary bg-primary/10 shadow-[0_0_10px_rgba(139,92,246,0.2)]' : 'border-zinc-700 text-zinc-300 hover:border-primary hover:text-primary bg-zinc-950'"
+                                                class="py-3 border rounded-lg text-center transition-all font-medium text-sm">
+                                            ¥ <span x-text="amount"></span>
+                                        </button>
+                                    </template>
+                                    <button @click="isCustomAmount = true; topupAmount = ''"
+                                            :class="isCustomAmount ? 'border-primary text-primary bg-primary/10 shadow-[0_0_10px_rgba(139,92,246,0.2)]' : 'border-zinc-700 text-zinc-300 hover:border-primary hover:text-primary bg-zinc-950'"
+                                            class="py-3 border rounded-lg text-center transition-all font-medium text-sm">其它金额</button>
+                                </div>
+                                <div x-show="isCustomAmount" x-collapse class="mt-4">
+                                    <div class="relative w-full md:w-64">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">¥</span>
+                                        <input type="number" x-model="topupAmount" placeholder="请输入充值金额" class="w-full bg-zinc-950 border border-primary/50 shadow-[0_0_10px_rgba(139,92,246,0.1)] rounded-lg py-2.5 pl-10 pr-4 text-white focus:border-primary outline-none transition-all">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col md:flex-row items-start md:items-center mb-8">
+                            <span class="text-sm text-zinc-400 w-24 mb-2 md:mb-0">支付方式：</span>
+                            <button class="border border-primary text-white bg-zinc-950 px-8 py-2.5 rounded-lg flex items-center text-sm relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-0 h-0 border-t-[24px] border-l-[24px] border-t-primary border-l-transparent"></div>
+                                <i class="ph-bold ph-check absolute top-0.5 right-0.5 text-[10px] text-white"></i>
+                                <i class="ph-fill ph-wechat-logo text-green-500 mr-2 text-xl"></i> 微信
+                            </button>
+                        </div>
+
+                        <div class="md:pl-24">
+                            <button @click="showPaymentModal = true" :disabled="!topupAmount || topupAmount <= 0 || !agreeTerms" class="bg-zinc-100 text-zinc-900 font-bold py-2.5 px-10 rounded-lg hover:bg-white transition-colors mb-4 disabled:opacity-50 disabled:cursor-not-allowed">确认支付</button>
+                            <div class="flex items-start md:items-center">
+                                <input type="checkbox" x-model="agreeTerms" id="agree" class="mt-1 md:mt-0 mr-2 accent-primary w-4 h-4 rounded border-zinc-700 bg-zinc-900 shrink-0 cursor-pointer">
+                                <label for="agree" class="text-xs text-zinc-500 cursor-pointer">我已知悉充值资金不支持直接开具发票，确认支付即代表同意本平台 <a href="#" class="text-primary hover:underline">「充值协议」</a></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-sm font-bold text-white">充值退款记录</h2>
+                        <button class="text-zinc-500 hover:text-white transition-colors"><i class="ph ph-arrows-clockwise text-lg"></i></button>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-zinc-800 bg-zinc-950/50 text-zinc-400 text-xs font-medium">
+                                    <th class="py-3.5 px-6">编号</th><th class="py-3.5 px-6">时间</th><th class="py-3.5 px-6">充值渠道</th><th class="py-3.5 px-6">状态</th><th class="py-3.5 px-6 text-right">金额</th><th class="py-3.5 px-6 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm text-zinc-300">
+                                <tr class="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                                    <td class="py-3.5 px-6 font-mono text-xs text-zinc-400 flex items-center">5078696244941209697680750 <i @click="copyToClipboard('5078696244941209697680750')" class="ph ph-copy ml-2 cursor-pointer hover:text-white text-zinc-500"></i></td>
+                                    <td class="py-3.5 px-6 text-xs">2026-03-22 11:07:59</td>
+                                    <td class="py-3.5 px-6 flex items-center text-xs"><i class="ph-fill ph-wechat-logo text-green-500 mr-1.5 text-base"></i>微信支付</td>
+                                    <td class="py-3.5 px-6"><span class="text-green-400 text-xs font-medium">支付成功</span></td>
+                                    <td class="py-3.5 px-6 text-right font-mono text-xs">¥5.00</td>
+                                    <td class="py-3.5 px-6 text-right"><span class="text-xs text-zinc-500 hover:text-white cursor-pointer transition-colors">退款</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="activeTab === 'logs'" x-transition.opacity style="display: none;">
+                <div class="flex justify-between items-center mb-6">
+                    <p class="text-zinc-400 text-sm">近期的 API 调用记录及扣费明细（仅展示最近 100 条）。</p>
+                    <select class="bg-zinc-900 border border-zinc-800 text-sm text-white rounded-lg px-3 py-2 outline-none">
+                        <option>所有模型</option><option>kimi-k2.5</option><option>kimi-k2-0905-preview</option>
+                    </select>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400 text-xs uppercase tracking-wider">
+                                <th class="py-3 px-6 font-medium">请求时间</th><th class="py-3 px-6 font-medium">密钥名称</th><th class="py-3 px-6 font-medium">模型</th><th class="py-3 px-6 font-medium text-right">Tokens (入/出)</th><th class="py-3 px-6 font-medium text-right">扣费金额</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm text-zinc-300">
+                            <template x-for="(log, index) in logs" :key="index">
+                                <tr class="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                                    <td class="py-3 px-6 text-zinc-400 font-mono text-xs" x-text="log.date"></td>
+                                    <td class="py-3 px-6"><span class="bg-zinc-800 px-2 py-1 rounded text-xs text-white" x-text="log.keyName"></span></td>
+                                    <td class="py-3 px-6"><span class="text-primary font-mono text-xs" x-text="log.model"></span></td>
+                                    <td class="py-3 px-6 text-right"><span class="text-zinc-400 text-xs"><span x-text="log.promptTokens"></span> / <span x-text="log.completionTokens"></span></span></td>
+                                    <td class="py-3 px-6 text-right font-mono font-medium" :class="log.cost === 0 ? 'text-zinc-500' : 'text-red-400'" x-text="log.cost === 0 ? '免费' : '-¥' + log.cost.toFixed(4)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <div x-show="toastMessage" x-transition.opacity class="absolute bottom-8 right-8 bg-zinc-800 text-white px-6 py-3 rounded-xl shadow-2xl border border-zinc-700 flex items-center z-50 toast-enter">
+            <i class="ph-fill ph-check-circle text-green-400 text-xl mr-3"></i>
+            <span x-text="toastMessage" class="text-sm font-medium"></span>
+        </div>
+    </main>
+
+    <div x-show="showKeyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;" x-transition.opacity>
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-[420px] overflow-hidden shadow-2xl" @click.away="showKeyModal = false" x-transition>
+            <div class="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+                <h3 class="text-lg font-bold text-white">创建新密钥</h3>
+                <button @click="showKeyModal = false" class="text-zinc-500 hover:text-white transition-colors"><i class="ph ph-x text-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <label class="block text-sm text-zinc-400 mb-2">名称备注</label>
+                <input type="text" x-model="newKeyData.name" placeholder="例如：开发环境测试" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-colors mb-5">
+                <label class="block text-sm text-zinc-400 mb-2">设置额度上限 (¥) <span class="text-xs text-zinc-600">- 可选</span></label>
+                <div class="relative mb-8">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">¥</span>
+                    <input type="number" x-model="newKeyData.quota" placeholder="不填则无限制" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 pl-8 pr-4 text-sm text-white focus:border-primary outline-none transition-colors">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button @click="showKeyModal = false" class="px-5 py-2.5 rounded-xl text-sm font-medium text-zinc-400 hover:bg-zinc-800 transition-colors">取消</button>
+                    <button @click="generateKey()" class="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-purple-500 transition-colors shadow-lg shadow-primary/20">生成密钥</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showPaymentModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" style="display: none;" x-transition.opacity>
+        <div class="bg-white border border-zinc-200 rounded-2xl w-[320px] overflow-hidden shadow-2xl flex flex-col items-center p-8 relative" @click.away="showPaymentModal = false" x-transition>
+            <button @click="showPaymentModal = false" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600"><i class="ph ph-x text-lg"></i></button>
+            <div class="flex items-center mb-4">
+                <i class="ph-fill ph-wechat-logo text-green-500 text-2xl mr-2"></i>
+                <h3 class="text-base font-bold text-zinc-800">微信扫码支付</h3>
+            </div>
+            <p class="text-3xl font-bold text-zinc-900 mb-6">¥<span x-text="topupAmount"></span></p>
+            <div class="w-48 h-48 bg-zinc-100 rounded-xl p-2 mb-6 border border-zinc-200 flex items-center justify-center relative">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MockPaymentURL" alt="QR Code" class="w-full h-full opacity-90">
+            </div>
+            <button @click="simulatePaymentSuccess()" class="w-full bg-primary/10 text-primary px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-primary hover:text-white transition-colors">
+                [Dev] 模拟支付成功
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function dashboardData() {
+            return {
+                activeTab: 'billing', // 默认打开余额充值页面展示效果
+                balance: 4.4145, 
+                
+                topupAmount: 100,
+                isCustomAmount: false,
+                agreeTerms: false,
+                searchQuery: '',
+                
+                showKeyModal: false,
+                showPaymentModal: false,
+                toastMessage: '',
+                newKeyData: { name: '', quota: '' },
+                
+                navItems: [
+                    { id: 'models', label: '模型定价', icon: 'ph ph-currency-cny' },
+                    { id: 'keys', label: 'API 密钥', icon: 'ph ph-key' },
+                    { id: 'billing', label: '余额充值', icon: 'ph ph-wallet' },
+                    { id: 'logs', label: '费用明细', icon: 'ph ph-list-dashes' }
+                ],
+
+                // 数据源
+                allModels: [
+                    { id: 'kimi-k2.5', name: 'Kimi K2.5', type: 'text', context: '256K', officialHit: '0.70', officialMiss: '4.00', officialOutput: '21.00', hitPrice: '0.63', missPrice: '3.60', outputPrice: '18.90', tags: ['多模态', '旗舰版', 'K2.5'], description: '最新的多模态大模型，全面提升了图文理解和代码生成能力。' },
+                    { id: 'kimi-k2-0905-preview', name: 'Kimi K2 (0905)', type: 'text', context: '256K', officialHit: '1.00', officialMiss: '4.00', officialOutput: '16.00', hitPrice: '0.90', missPrice: '3.60', outputPrice: '14.40', tags: ['文本生成', '256K', '稳定版'], description: '提供稳定的256K超长上下文生成能力，适合常规长文本处理任务。' },
+                    { id: 'kimi-k2-turbo-preview', name: 'Kimi K2 Turbo', type: 'text', context: '256K', officialHit: '1.00', officialMiss: '8.00', officialOutput: '58.00', hitPrice: '0.90', missPrice: '7.20', outputPrice: '52.20', tags: ['极速响应', '高并发'], description: 'Turbo版本提供更快的首字和生成速度，适合对延迟要求极高的场景。' }
+                ],
+                apiKeys: [ { name: 'ChatBot 客户端使用', value: 'sk-kimi9fP2jK5hW1yA7bE3mN4vLq', quota: 50.0, used: 12.50, date: '2024-04-16', status: true } ],
+                logs: [ 
+                    { date: '2024-04-16 19:32:01', keyName: 'ChatBot 客户端使用', model: 'kimi-k2.5', promptTokens: 4500, completionTokens: 1200, cost: 0.0388 },
+                    { date: '2024-04-16 19:28:15', keyName: 'ChatBot 客户端使用', model: 'kimi-k2-0905-preview', promptTokens: 1200, completionTokens: 850, cost: 0.0165 }
+                ],
+
+                // 方法函数
+                filteredModels() {
+                    return this.allModels.filter(model => model.name.toLowerCase().includes(this.searchQuery.toLowerCase()) || model.id.toLowerCase().includes(this.searchQuery.toLowerCase()));
+                },
+                maskKey(fullKey) { return fullKey.substring(0, 10) + '...' + fullKey.substring(fullKey.length - 6); },
+                showToast(msg) { this.toastMessage = msg; setTimeout(() => { this.toastMessage = ''; }, 3000); },
+                copyToClipboard(text) { navigator.clipboard.writeText(text).then(() => { this.showToast('已复制: ' + text); }); },
+                
+                generateKey() {
+                    let name = this.newKeyData.name.trim() || '未命名密钥';
+                    let quota = parseFloat(this.newKeyData.quota) || -1;
+                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                    let randomStr = '';
+                    for (let i = 0; i < 32; i++) randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+                    
+                    this.apiKeys.unshift({ name: name, value: 'sk-' + randomStr, quota: quota, used: 0, date: new Date().toISOString().split('T')[0], status: true });
+                    this.newKeyData = { name: '', quota: '' };
+                    this.showKeyModal = false;
+                    this.showToast('密钥创建成功！');
+                },
+
+                simulatePaymentSuccess() {
+                    let amount = parseInt(this.topupAmount);
+                    this.showPaymentModal = false;
+                    setTimeout(() => {
+                        this.balance += amount;
+                        this.showToast(`微信支付成功！已到账 ¥${amount}`);
+                    }, 400);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
